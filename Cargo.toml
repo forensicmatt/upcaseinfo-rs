@@ -1,5 +1,5 @@
 [package]
-name = "upcaseinfo-rs"
+name = "upcaseinfo"
 version = "0.1.0"
 authors = ["Matthew Seyer"]
 edition = "2018"
@@ -11,3 +11,4 @@ clap = "2"
 log = "0.4"
 fern = "0.5"
 chrono = "0.4"
+byteorder = "1.3"
