@@ -1,9 +1,13 @@
 #[macro_use] extern crate log;
 use std::process::exit;
+use std::fs::File;
+use std::io::{Read, Cursor};
+use serde_json;
 use chrono::Local;
 use fern::Dispatch;
 use log::LevelFilter;
 use clap::{App, Arg, ArgMatches};
+use upcaseinfo::info::UpcaseInfo;
 
 static VERSION: &str = "0.1.0";
 
@@ -20,6 +24,15 @@ fn get_argument_parser<'a, 'b>() -> App<'a, 'b> {
         .takes_value(true)
         .help("The source");
 
+    let format_arg = Arg::with_name("format")
+        .short("-f")
+        .long("format")
+        .value_name("FORMAT")
+        .default_value("json")
+        .possible_values(&["json", "text"])
+        .takes_value(true)
+        .help("The output format");
+
     let logging_arg = Arg::with_name("logging")
         .long("logging")
         .value_name("LOGGING LEVEL")
@@ -33,6 +46,7 @@ fn get_argument_parser<'a, 'b>() -> App<'a, 'b> {
         .author("Matthew Seyer <https://github.com/forensicmatt/upcaseinfo-rs>")
         .about("Parse an $UpCase:$Info file and display the output.")
         .arg(source_arg)
+        .arg(format_arg)
         .arg(logging_arg)
 }
 
@@ -95,4 +109,33 @@ fn main() {
     let source_file = options.value_of("source").expect("No source was provided!");
 
     info!("parsing file: {}", source_file);
+    
+    // Open file handle and create buffer
+    let mut file_handle = File::open(source_file).expect("Error opening source file.");
+    let mut raw_buffer = Vec::new();
+
+    // read the whole file to buffer
+    file_handle.read_to_end(&mut raw_buffer).expect("Error reading file.");
+
+    // Wrap cursor around vector so it implements Read
+    let info_buffer_cursor = Cursor::new(&raw_buffer);
+    // Parse buffer into UpcaseInfo struct
+    let upcase_info = UpcaseInfo::new(info_buffer_cursor).expect("Error parsing Upcase:Info buffer.");
+
+    match options.value_of("format").expect("No format option value.") {
+        "json" => {
+            // Serialize it to a JSON string.
+            let upcase_json = serde_json::to_string_pretty(&upcase_info)
+                .expect("Error serializing upcase_info into JSON");
+            println!("{}", upcase_json);
+        },
+        "text" => {
+            let upcase_as_text = upcase_info.to_string();
+            println!("{}", upcase_as_text);
+        },
+        unknown => {
+            eprintln!("Unhandled output format: {}", unknown);
+            exit(-1);
+        }
+    }
 }
